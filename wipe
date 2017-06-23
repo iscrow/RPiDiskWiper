@@ -9,7 +9,7 @@ DEBUG=1		# Debug enabled
 #DEBUG=		# Debug disabled
 
 if [ "$DEBUG" ]; then
-#	exec >> $LOGFILE
+	exec >> $LOGFILE
 	exec 2>&1
 fi
 
@@ -42,9 +42,12 @@ if [ ! -b "$disk" ]; then
 fi
 
 log "Disk matches pattern /dev/sd*. Wiping!"
-dd if=/dev/zero of=$disk bs=1M count=1
 
 check
+
+# Select wipe strategy
+shred -v --iterations=1 "$disk"				# A more secure but slower. man shred for more options
+
 
 log "Wiping Complete. Partitioning."
 (
