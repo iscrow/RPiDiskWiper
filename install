@@ -14,7 +14,7 @@ sed -e "s|__DIR__|$DIR|g" $DIR/$UNIT@.service > /etc/systemd/system/$UNIT@.servi
 systemctl daemon-reload
 
 # Adjust the device name range you want to enable
-for n in $(echo {a..d}); do
+for n in $(echo {a..z}); do
 	# Enable the unit template for each device
 	systemctl enable $UNIT@sd$n
 done

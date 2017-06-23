@@ -9,7 +9,7 @@ DEBUG=1		# Debug enabled
 #DEBUG=		# Debug disabled
 
 if [ "$DEBUG" ]; then
-	exec >> $LOGFILE
+#	exec >> $LOGFILE		# This causes all stdout of the script to be sent to the logfile
 	exec 2>&1
 fi
 
@@ -17,8 +17,14 @@ function log() {
 	[ "$DEBUG" ] && echo $(date) :: $disk :: $* >> $LOGFILE
 }
 
+function inlog() {
+	while read -r line; do 
+		[ "$DEBUG" ] && log "$line";
+	done
+}
+
 function check() {
-	if [ ! -b "$disk" ]; then
+	if [ ! -b "$disk" ] || [[ ! "$(sudo blockdev --getsize64 $disk 2>/dev/null)" =~ ^[0-9]+$ ]]; then
 		log "Disk disappeared prematurely! Aborting!"
 		exit 1
 	fi
@@ -26,8 +32,8 @@ function check() {
 
 interrupted() {
 	log "Ooopsies! Looks like our device disappeared. Systemd is killing us. Cleaning up and exiting."
-	umount $mntpath
-	rmdir $mntpath
+	umount $mntpath &>/dev/null
+	rmdir $mntpath &>/dev/null
 	exit 1
 }
 
@@ -41,13 +47,20 @@ if [ ! -b "$disk" ]; then
 	exit 1
 fi
 
+if [[ ! "$(sudo blockdev --getsize64 $disk 2>/dev/null)" =~ ^[0-9]+$ ]]; then
+	log "Disk does not have a valid size. Ignoring!"
+	exit 1
+fi
+# Export log function so it can be used with xargs
+
 log "Disk matches pattern /dev/sd*. Wiping!"
 
 check
 
 # Select wipe strategy
-shred -v --iterations=1 "$disk"				# A more secure but slower. man shred for more options
-
+#shred -v --iterations=1 "$disk"	2>&1 #| inlog															# man shred for more options
+openssl enc -aes128 -k "wiper" < /dev/zero | pv -ftrb 2>&1 > "$disk" | stdbuf -oL tr '\r' '\n' | inlog		# Faster than shred. You need to have pv installed for this
+#openssl enc -aes128 -k "wiper" < /dev/zero > "$disk"														# Faster than shred. No pv required but no progress is logged.
 
 log "Wiping Complete. Partitioning."
 (
@@ -78,6 +91,6 @@ check
 
 touch  $mntpath/$(date +"%Y-%m-%d--%H-%M-%S")
 umount $mntpath
-rmdir $mntpath
+rm -rf $mntpath
 
-log "Done!"
+log "Done in $SECONDS seconds!"
