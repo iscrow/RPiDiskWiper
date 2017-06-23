@@ -1,0 +1,80 @@
+#!/bin/bash
+
+LOGFILE=/tmp/wipe.log
+
+disk="/dev/$1"
+mntpath="/mnt/$(basename "$disk")1"
+
+DEBUG=1		# Debug enabled
+#DEBUG=		# Debug disabled
+
+if [ "$DEBUG" ]; then
+#	exec >> $LOGFILE
+	exec 2>&1
+fi
+
+function log() {
+	[ "$DEBUG" ] && echo $(date) :: $disk :: $* >> $LOGFILE
+}
+
+function check() {
+	if [ ! -b "$disk" ]; then
+		log "Disk disappeared prematurely! Aborting!"
+		exit 1
+	fi
+}
+
+interrupted() {
+	log "Ooopsies! Looks like our device disappeared. Systemd is killing us. Cleaning up and exiting."
+	umount $mntpath
+	rmdir $mntpath
+	exit 1
+}
+
+trap interrupted INT TERM
+
+log "Disk Inserted."
+[[ "$disk" =~ \/dev\/sd[a-z]$ ]] || exit 1
+
+if [ ! -b "$disk" ]; then
+	log "Disk does not match the required pattern /dev/sd*. Ignoring!"
+	exit 1
+fi
+
+log "Disk matches pattern /dev/sd*. Wiping!"
+dd if=/dev/zero of=$disk bs=1M count=1
+
+check
+
+log "Wiping Complete. Partitioning."
+(
+echo o # Create a new empty DOS partition table
+echo n # Add a new partition
+echo p # Primary partition
+echo 1 # Partition number
+echo   # First sector (Accept default: 1)
+echo   # Last sector (Accept default: varies)
+echo w # Write changes
+) | fdisk $disk
+
+check
+
+log "Partitioning complete. Formatting."
+mkfs.vfat -F 32 ${disk}1
+#mkfs.ntfs -F ${disk}1
+#mkfs.ext3 -F ${disk}1
+#mkfs.xfs -F ${disk}1
+
+check
+
+log "Formatting complete. Timestamping."
+mkdir $mntpath
+mount ${disk}1 $mntpath
+
+check
+
+touch  $mntpath/$(date +"%Y-%m-%d--%H-%M-%S")
+umount $mntpath
+rmdir $mntpath
+
+log "Done!"

@@ -1,0 +1,14 @@
+[Unit]
+Description=Automatically wipe inserted storage devices
+After=dev-%i.device
+BindsTo=dev-%i.device
+Requisite=dev-%i.device
+
+[Service]
+WorkingDirectory=/tmp
+Type=oneshot
+ExecStart=/usr/local/bin/wipe %i
+StandardOutput=journal
+
+[Install]
+WantedBy=dev-%i.device
