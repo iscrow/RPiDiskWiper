@@ -5,9 +5,9 @@ BindsTo=dev-%i.device
 Requisite=dev-%i.device
 
 [Service]
-WorkingDirectory=/tmp
+WorkingDirectory=__DIR__
 Type=oneshot
-ExecStart=/usr/local/bin/wipe %i
+ExecStart=__DIR__/wipe %i
 StandardOutput=journal
 
 [Install]
