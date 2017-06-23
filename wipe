@@ -1,9 +1,10 @@
 #!/bin/bash
 
-LOGFILE=/tmp/wipe.log
+LOGFILE="/tmp/wipe.log"
 
 disk="/dev/$1"
 mntpath="/mnt/$(basename "$disk")1"
+statefile="/tmp/$1"
 
 DEBUG=1		# Debug enabled
 #DEBUG=		# Debug disabled
@@ -12,6 +13,43 @@ if [ "$DEBUG" ]; then
 #	exec >> $LOGFILE		# This causes all stdout of the script to be sent to the logfile
 	exec 2>&1
 fi
+
+function led() {
+	# State can be: timer oneshot heartbeat backlight gpio cpu0 cpu1 cpu2 cpu3 default-on input panic mmc0
+	#Default led0 (Status) trigger: mmc0
+	#Default led1  (Power) trigger: input
+	led=$1
+	state=$2
+	echo $state > /sys/class/leds/led$led/trigger
+}
+
+function setstate() {
+	state=$1
+	[ "$state" == "wiping" ] && (rm $statefile.*; touch "$statefile.wipingstate") 2> /dev/null
+	[ "$state" == "done" ] && rm $statefile.* 2>/dev/null
+	[ "$state" == "error" ] && (rm $statefile.*; touch "$statefile.errorstate") 2>/dev/null
+}
+
+function led_wiping() {
+	setstate wiping
+	led 0 heartbeat
+	led 1 heartbeat
+}
+
+function led_done() {
+	setstate done
+	if [ "$(ls /tmp/*state | wc -l)" -ne 0 ]; then
+		return
+	fi
+	led 0 mmc0
+	led 1 input
+}
+
+function led_error() {
+	setstate error
+	led 0 none
+	led 1 timer
+}
 
 function log() {
 	[ "$DEBUG" ] && echo $(date) :: $disk :: $* >> $LOGFILE
@@ -33,7 +71,8 @@ function check() {
 interrupted() {
 	log "Ooopsies! Looks like our device disappeared. Systemd is killing us. Cleaning up and exiting."
 	umount $mntpath &>/dev/null
-	rmdir $mntpath &>/dev/null
+	rmdir -rf $mntpath &>/dev/null
+	led_error
 	exit 1
 }
 
@@ -56,6 +95,8 @@ fi
 log "Disk matches pattern /dev/sd*. Wiping!"
 
 check
+
+led_wiping
 
 # Select wipe strategy
 #shred -v --iterations=1 "$disk"	2>&1 #| inlog															# man shred for more options
@@ -92,5 +133,7 @@ check
 touch  $mntpath/$(date +"%Y-%m-%d--%H-%M-%S")
 umount $mntpath
 rm -rf $mntpath
+
+led_done
 
 log "Done in $SECONDS seconds!"
