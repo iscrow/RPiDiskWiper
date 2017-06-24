@@ -2,9 +2,10 @@
 
 LOGFILE="/tmp/wipe.log"
 
-disk="/dev/$1"
+dev=$1
+disk="/dev/$dev"
 mntpath="/mnt/$(basename "$disk")1"
-statefile="/tmp/$1"
+statefile="/tmp/$dev"
 
 DEBUG=1		# Debug enabled. Log to $LOGFILE
 #DEBUG=		# Debug disabled. Do not log.
@@ -15,46 +16,64 @@ if [ "$DEBUG" ]; then
 fi
 
 # Set LED status. Example: led 0 heartbeat
-function led() {
-	# State can be: timer oneshot heartbeat backlight gpio cpu0 cpu1 cpu2 cpu3 default-on input panic mmc0
-	#Default led0 (Status) trigger: mmc0
-	#Default led1  (Power) trigger: input
-	led=$1
-	state=$2
-	echo $state > /sys/class/leds/led$led/trigger
+function ledtrigger() {
+	# Trigger can be: timer oneshot heartbeat backlight gpio cpu0 cpu1 cpu2 cpu3 default-on input panic mmc0
+	# Default led0 (Green: Status) trigger: mmc0
+	# Default led1 (  Red: Power ) trigger: input
+	[ "$1" == "red" ] && led=1 || led=0
+	case "$1" in
+	green)
+		echo $2 > /sys/class/leds/led0/trigger
+		;;
+	red)
+		echo $2 > /sys/class/leds/led1/trigger
+		;;
+	both)
+		echo $2 > /sys/class/leds/led0/trigger
+		echo $2 > /sys/class/leds/led1/trigger
+		;;
+	esac
 }
 
 # Create/remove the appropriate state flags in /tmp that allow multiple instances of this script
 # wiping disks in parallel to agree on what the LEDs should be doing.
 function setstate() {
 	state=$1
-	[ "$state" == "wiping" ] && (rm $statefile.*; touch "$statefile.wipingstate") 2> /dev/null
-	[ "$state" == "done" ] && rm $statefile.* 2>/dev/null
-	[ "$state" == "error" ] && (rm $statefile.*; touch "$statefile.errorstate") 2>/dev/null
+	case "$state" in
+	"wiping")
+		rm $statefile.* 2>/dev/null
+		touch "$statefile.wipingstate"
+		;;
+	"done")
+		rm $statefile.* 2>/dev/null
+		;;
+	"error")
+		rm $statefile.* 2>/dev/null
+		touch "$statefile.errorstate"
+		;;
+	esac
 }
 
-# Turn on the wiping LED signal if appropriate
-function led_wiping() {
-	setstate wiping
-	led 0 heartbeat
-	led 1 heartbeat
-}
-
-# Turn on the done LED signal if appropriate
-function led_done() {
-	setstate done
-	if [ "$(ls /tmp/*state | wc -l)" -ne 0 ]; then
-		return
-	fi
-	led 0 mmc0
-	led 1 input
-}
-
-# Turn on the error LED signal if appropriate
-function led_error() {
-	setstate error
-	led 0 none
-	led 1 timer
+function pulse() {
+	case "$1" in
+	green)
+		echo 255 > /sys/class/leds/led0/brightness
+		sleep 0.1
+		echo   0 > /sys/class/leds/led0/brightness
+		;;
+	red)
+		echo 255 > /sys/class/leds/led1/brightness
+		sleep 0.1
+		echo   0 > /sys/class/leds/led1/brightness
+		;;
+	both)
+		echo 255 > /sys/class/leds/led0/brightness
+		echo 255 > /sys/class/leds/led1/brightness
+		sleep 0.1
+		echo   0 > /sys/class/leds/led0/brightness
+		echo   0 > /sys/class/leds/led1/brightness
+		;;
+	esac
 }
 
 # Log to the $LOGFILE is DEBUG is enabled. Example: log "my message"
@@ -70,6 +89,24 @@ function inlog() {
 	done
 }
 
+function wiperslist() {
+    echo $(ls /tmp/*.wipingstate 2>/dev/null)
+}
+
+function blink() {
+    wipers=$(wiperslist)
+	echo $wipers
+    [[ "$wipers" =~ ^/tmp/$dev ]] && master=1 || master=""
+	if [ $master ]; then
+		ledtrigger both none
+	fi
+    for process in $wipers; do
+        [ $master ] && pulse both
+        sleep 0.2
+    done
+}
+
+
 # Sanity check that is called before each major step to ensure the disk is still there.
 function check() {
 	if [ ! -b "$disk" ] || [[ ! "$(sudo blockdev --getsize64 $disk 2>/dev/null)" =~ ^[0-9]+$ ]]; then
@@ -80,10 +117,11 @@ function check() {
 
 # If the disk is removed before we're done, systemd will kill us. Catch that signal and do some cleanup.
 interrupted() {
+	setstate done
 	log "Ooopsies! Looks like our device disappeared. Systemd is killing us. Cleaning up and exiting."
 	umount $mntpath &>/dev/null
 	rmdir -r $mntpath &>/dev/null
-	led_error
+	[ "$(wiperslist | wc -l)" ] && ledtrigger red input
 	exit 1
 }
 
@@ -106,11 +144,8 @@ log "Disk matches pattern /dev/sd*. Wiping!"
 # Check if the disk is still there
 check
 
-# Turn on the wiping LED pattern
-led_wiping	
-
 ### Select wipe strategy ###
-
+(
 # man shred for more options
 #shred -v --iterations=1 "$disk" 2>&1 | inlog
 
@@ -119,8 +154,23 @@ openssl enc -aes128 -k "wiper" < /dev/zero | pv -ftrb 2>&1 > "$disk" | stdbuf -o
 
 # Faster than shred. No pv required but no progress is logged.
 #openssl enc -aes128 -k "wiper" < /dev/zero > "$disk"
+) &
 
 ### End wipe strategies ###
+
+# Capture the wiper PID
+PID=$!
+
+setstate wiping
+# Blink the LEDs while the wiper is running
+while kill -0 "$PID" >/dev/null 2>&1; do
+    blink
+	log '--- Cycle ---'
+    sleep 2
+done
+[ "$(wiperslist | wc -l)" ] && ledtrigger red input
+
+setstate done
 
 # Create a partition table on the disk with one partition filling the disk.
 log "Wiping Complete. Partitioning."
@@ -164,6 +214,5 @@ umount $mntpath
 rm -r $mntpath
 
 # Turn on done LED pattern
-led_done
 
 log "Done in $SECONDS seconds!"

@@ -6,6 +6,13 @@ if [ $EUID != 0 ]; then
     exit $?
 fi
 
+# We'll need bc nad pv. Install them if needed.
+if [ -z "$(which pv)" ] || [ -z "$(which bc)" ]; then
+	echo "I need pv and bc and at least one is missing. I'll install them."
+	apt-get -y update
+	apt-get -y install pv bc
+fi
+
 UNIT="RPiDiskWiper"
 SOURCE="${BASH_SOURCE[0]}"
 DIR="$( cd -P "$( dirname "$SOURCE" )" && pwd )"
@@ -18,3 +25,6 @@ for n in $(echo {a..z}); do
 	# Enable the unit template for each device
 	systemctl enable $UNIT@sd$n
 done
+
+echo "All done! Plug a storage device to wipe it. You can monitor the log file like this:"
+echo "tail -F /tmp/wiper.log"
