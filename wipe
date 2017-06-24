@@ -91,8 +91,8 @@ interrupted() {
 trap interrupted INT TERM
 
 log "Disk Inserted."
-if [[ "$disk" =~ \/dev\/sd[a-z]$ ]]; then
-	log "Disk does not match the required pattern /dev/sd*. Ignoring!"
+if [[ ! "$disk" =~ \/dev\/sd[a-z]$ ]]; then
+	log "Disk $disk does not match the required pattern /dev/sd*. Ignoring!"
 	exit 1
 fi
 
