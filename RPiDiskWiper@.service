@@ -1,5 +1,5 @@
 [Unit]
-Description=Automatically wipe inserted storage devices
+Description=RPiDiskWiper
 After=dev-%i.device
 BindsTo=dev-%i.device
 Requisite=dev-%i.device
