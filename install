@@ -7,10 +7,10 @@ if [ $EUID != 0 ]; then
 fi
 
 # We'll need bc nad pv. Install them if needed.
-if [ -z "$(which pv)" ] || [ -z "$(which bc)" ]; then
-	echo "I need pv and bc and at least one is missing. I'll install them."
+if [ -z "$(which pv)" ]; then
+	echo "I need pv and it's missing. I'll install it."
 	apt-get -y update
-	apt-get -y install pv bc
+	apt-get -y install pv
 fi
 
 UNIT="RPiDiskWiper"
