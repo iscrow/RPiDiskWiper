@@ -6,14 +6,15 @@ disk="/dev/$1"
 mntpath="/mnt/$(basename "$disk")1"
 statefile="/tmp/$1"
 
-DEBUG=1		# Debug enabled
-#DEBUG=		# Debug disabled
+DEBUG=1		# Debug enabled. Log to $LOGFILE
+#DEBUG=		# Debug disabled. Do not log.
 
 if [ "$DEBUG" ]; then
 #	exec >> $LOGFILE		# This causes all stdout of the script to be sent to the logfile
 	exec 2>&1
 fi
 
+# Set LED status. Example: led 0 heartbeat
 function led() {
 	# State can be: timer oneshot heartbeat backlight gpio cpu0 cpu1 cpu2 cpu3 default-on input panic mmc0
 	#Default led0 (Status) trigger: mmc0
@@ -23,6 +24,8 @@ function led() {
 	echo $state > /sys/class/leds/led$led/trigger
 }
 
+# Create/remove the appropriate state flags in /tmp that allow multiple instances of this script
+# wiping disks in parallel to agree on what the LEDs should be doing.
 function setstate() {
 	state=$1
 	[ "$state" == "wiping" ] && (rm $statefile.*; touch "$statefile.wipingstate") 2> /dev/null
@@ -30,12 +33,14 @@ function setstate() {
 	[ "$state" == "error" ] && (rm $statefile.*; touch "$statefile.errorstate") 2>/dev/null
 }
 
+# Turn on the wiping LED signal if appropriate
 function led_wiping() {
 	setstate wiping
 	led 0 heartbeat
 	led 1 heartbeat
 }
 
+# Turn on the done LED signal if appropriate
 function led_done() {
 	setstate done
 	if [ "$(ls /tmp/*state | wc -l)" -ne 0 ]; then
@@ -45,22 +50,27 @@ function led_done() {
 	led 1 input
 }
 
+# Turn on the error LED signal if appropriate
 function led_error() {
 	setstate error
 	led 0 none
 	led 1 timer
 }
 
+# Log to the $LOGFILE is DEBUG is enabled. Example: log "my message"
 function log() {
 	[ "$DEBUG" ] && echo $(date) :: $disk :: $* >> $LOGFILE
 }
 
+# Log to $LOGFILE lines read on stdin instead of passed as parameters
+# Expample: echo "my message" | inlog
 function inlog() {
 	while read -r line; do 
 		[ "$DEBUG" ] && log "$line";
 	done
 }
 
+# Sanity check that is called before each major step to ensure the disk is still there.
 function check() {
 	if [ ! -b "$disk" ] || [[ ! "$(sudo blockdev --getsize64 $disk 2>/dev/null)" =~ ^[0-9]+$ ]]; then
 		log "Disk disappeared prematurely! Aborting!"
@@ -68,20 +78,20 @@ function check() {
 	fi
 }
 
+# If the disk is removed before we're done, systemd will kill us. Catch that signal and do some cleanup.
 interrupted() {
 	log "Ooopsies! Looks like our device disappeared. Systemd is killing us. Cleaning up and exiting."
 	umount $mntpath &>/dev/null
-	rmdir -rf $mntpath &>/dev/null
+	rmdir -r $mntpath &>/dev/null
 	led_error
 	exit 1
 }
 
+# Catch the INT and TERM signals
 trap interrupted INT TERM
 
 log "Disk Inserted."
-[[ "$disk" =~ \/dev\/sd[a-z]$ ]] || exit 1
-
-if [ ! -b "$disk" ]; then
+if [[ "$disk" =~ \/dev\/sd[a-z]$ ]]; then
 	log "Disk does not match the required pattern /dev/sd*. Ignoring!"
 	exit 1
 fi
@@ -90,19 +100,21 @@ if [[ ! "$(sudo blockdev --getsize64 $disk 2>/dev/null)" =~ ^[0-9]+$ ]]; then
 	log "Disk does not have a valid size. Ignoring!"
 	exit 1
 fi
-# Export log function so it can be used with xargs
 
 log "Disk matches pattern /dev/sd*. Wiping!"
 
+# Check if the disk is still there
 check
 
-led_wiping
+# Turn on the wiping LED pattern
+led_wiping	
 
 # Select wipe strategy
 #shred -v --iterations=1 "$disk"	2>&1 #| inlog															# man shred for more options
 openssl enc -aes128 -k "wiper" < /dev/zero | pv -ftrb 2>&1 > "$disk" | stdbuf -oL tr '\r' '\n' | inlog		# Faster than shred. You need to have pv installed for this
 #openssl enc -aes128 -k "wiper" < /dev/zero > "$disk"														# Faster than shred. No pv required but no progress is logged.
 
+# Create a partition table on the disk with one partition filling the disk.
 log "Wiping Complete. Partitioning."
 (
 echo o # Create a new empty DOS partition table
@@ -114,26 +126,36 @@ echo   # Last sector (Accept default: varies)
 echo w # Write changes
 ) | fdisk $disk
 
+# Check if the disk is still there
 check
 
+# Format the created partition
 log "Partitioning complete. Formatting."
 mkfs.vfat -F 32 ${disk}1
 #mkfs.ntfs -F ${disk}1
 #mkfs.ext3 -F ${disk}1
 #mkfs.xfs -F ${disk}1
 
+# Check if the disk is still there
 check
 
 log "Formatting complete. Timestamping."
+
+# Mount the partition
 mkdir $mntpath
 mount ${disk}1 $mntpath
 
+# Check if the disk is still there
 check
 
+# Create a timestamp file
 touch  $mntpath/$(date +"%Y-%m-%d--%H-%M-%S")
-umount $mntpath
-rm -rf $mntpath
 
+# Unmount and cleanup mount point
+umount $mntpath
+rm -r $mntpath
+
+# Turn on done LED pattern
 led_done
 
 log "Done in $SECONDS seconds!"
