@@ -112,7 +112,7 @@ led_wiping
 ### Select wipe strategy ###
 
 # man shred for more options
-#shred -v --iterations=1 "$disk"	2>&1 #| inlog
+#shred -v --iterations=1 "$disk" 2>&1 | inlog
 
 # Faster than shred. You need to have pv installed for this
 openssl enc -aes128 -k "wiper" < /dev/zero | pv -ftrb 2>&1 > "$disk" | stdbuf -oL tr '\r' '\n' | inlog
