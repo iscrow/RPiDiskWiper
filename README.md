@@ -17,3 +17,5 @@ The patterns are as follows:
 * Wiping: both LEDs in sync show a heartbeat pattern: .._.._.._
 * Done: Normal LED function. Green show sdcard access and RED one is solid on
 * Error: Green is off and Red flashed on and off ._._._
+
+After wipe, the script creates a DOS partition table on the disk with a single partition and formats is at FAT32. You can change the filesystem in `wiper`. It also adds a timestamp file on the newly created filesystem.
