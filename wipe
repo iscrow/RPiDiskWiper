@@ -109,10 +109,18 @@ check
 # Turn on the wiping LED pattern
 led_wiping	
 
-# Select wipe strategy
-#shred -v --iterations=1 "$disk"	2>&1 #| inlog															# man shred for more options
-openssl enc -aes128 -k "wiper" < /dev/zero | pv -ftrb 2>&1 > "$disk" | stdbuf -oL tr '\r' '\n' | inlog		# Faster than shred. You need to have pv installed for this
-#openssl enc -aes128 -k "wiper" < /dev/zero > "$disk"														# Faster than shred. No pv required but no progress is logged.
+### Select wipe strategy ###
+
+# man shred for more options
+#shred -v --iterations=1 "$disk"	2>&1 #| inlog
+
+# Faster than shred. You need to have pv installed for this
+openssl enc -aes128 -k "wiper" < /dev/zero | pv -ftrb 2>&1 > "$disk" | stdbuf -oL tr '\r' '\n' | inlog
+
+# Faster than shred. No pv required but no progress is logged.
+#openssl enc -aes128 -k "wiper" < /dev/zero > "$disk"
+
+### End wipe strategies ###
 
 # Create a partition table on the disk with one partition filling the disk.
 log "Wiping Complete. Partitioning."
