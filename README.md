@@ -1,6 +1,9 @@
 # RPiDiskWiper
 RPiDiskWiper turns a raspberry pi into an automated disk wiper
 
+## *DISCLAIMER*
+*Do not install this on your laptop/desktop unless you know what you're doing. Will it work? Sure! And if your root disk shows up as /dev/sd\* it will get wiped without questions. Just saying...*
+---
 ## Installation
 
 ```
