@@ -26,7 +26,7 @@ for n in $(echo {a..z}); do
 	if [ -b "/dev/sd$n" ]; then
 		echo
 		echo "There is a device /dev/sd$n currently connected to this system. I will not enable wiping of /dev/sd$n in case it's needed."
-		echo "If you want to eable wiping of /dev/sd$n, then please unplug it form the system and run this install script again."
+		echo "If you want to eable wiping of /dev/sd$n, then please unplug it from the system and run this install script again."
 		continue
 	fi
 	# Enable the unit template for each device
