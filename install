@@ -6,7 +6,7 @@ if [ $EUID != 0 ]; then
     exit $?
 fi
 
-# We'll need bc nad pv. Install them if needed.
+# We'll need pv. Install it if needed.
 if [ -z "$(which pv)" ]; then
 	echo "I need pv and it's missing. I'll install it."
 	apt-get -y update
@@ -22,9 +22,17 @@ systemctl daemon-reload
 
 # Adjust the device name range you want to enable
 for n in $(echo {a..z}); do
+	# Check to see if /dev/sd$n is currently connected to the system. If so, warn the user ane don't enable thatdevice's  systemd unit
+	if [ -b "/dev/sd$n" ]; then
+		echo
+		echo "There is a device /dev/sd$n currently connected to this system. I will not enable wiping of /dev/sd$n in case it's needed."
+		echo "If you want to eable wiping of /dev/sd$n, then please unplug it form the system and run this install script again."
+		continue
+	fi
 	# Enable the unit template for each device
 	systemctl enable $UNIT@sd$n
 done
 
+echo
 echo "All done! Plug a storage device to wipe it. You can monitor the log file like this:"
 echo "tail -F /tmp/wiper.log"
