@@ -102,7 +102,7 @@ function blink() {
 	fi
     for process in $wipers; do
         [ $master ] && pulse both
-        sleep 0.2
+        sleep 0.4
     done
 }
 
@@ -165,8 +165,7 @@ setstate wiping
 # Blink the LEDs while the wiper is running
 while kill -0 "$PID" >/dev/null 2>&1; do
     blink
-	log '--- Cycle ---'
-    sleep 2
+    sleep 1
 done
 [ "$(wiperslist | wc -l)" ] && ledtrigger red input
 
