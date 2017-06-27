@@ -29,6 +29,13 @@ If you remove a disk before the wipe is complete the script will flash the error
 
 To wipe multiple devices, connect them in any order you like. Or start the RPi with them already connected. It doesn't matter. It will find them and wipe them.
 
+## Uninstall
+
+```
+cd RPiDiskWiper
+./uninstall
+```
+
 ## Related Projects
 I started this project because I could not find anything that did exactly what I wanted. I did look at a few options and I got some ideas for my implementation from the following projects:
 
