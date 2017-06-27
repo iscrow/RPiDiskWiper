@@ -22,7 +22,7 @@ systemctl daemon-reload
 
 # Adjust the device name range you want to enable
 for n in $(echo {a..z}); do
-	# Check to see if /dev/sd$n is currently connected to the system. If so, warn the user ane don't enable thatdevice's  systemd unit
+	# Check to see if /dev/sd$n is currently connected to the system. If so, warn the user and don't enable that device's systemd unit
 	if [ -b "/dev/sd$n" ]; then
 		echo
 		echo "There is a device /dev/sd$n currently connected to this system. I will not enable wiping of /dev/sd$n in case it's needed."
