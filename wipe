@@ -5,9 +5,11 @@ LOGFILE="/tmp/wipe.log"
 dev=$1
 disk="/dev/$dev"
 mntpath="/mnt/$(basename "$disk")1"
-statefile="/tmp/$dev"
+statedir="/tmp"
+statefile="$statedir/$dev"
+state=""
 green="/sys/class/leds/led0"
-redn="/sys/class/leds/led1"
+red="/sys/class/leds/led1"
 
 DEBUG=1		# Debug enabled. Log to $LOGFILE
 #DEBUG=		# Debug disabled. Do not log.
@@ -32,25 +34,6 @@ function ledtrigger() {
 	both)
 		echo $2 > $green/trigger
 		echo $2 > $red/trigger
-		;;
-	esac
-}
-
-# Create/remove the appropriate state flags in /tmp that allow multiple instances of this script
-# wiping disks in parallel to agree on what the LEDs should be doing.
-function setstate() {
-	state=$1
-	case "$state" in
-	"wiping")
-		rm $statefile.* 2>/dev/null
-		touch "$statefile.wipingstate"
-		;;
-	"done")
-		rm $statefile.* 2>/dev/null
-		;;
-	"error")
-		rm $statefile.* 2>/dev/null
-		touch "$statefile.errorstate"
 		;;
 	esac
 }
@@ -90,20 +73,61 @@ function inlog() {
 	done
 }
 
-function wiperslist() {
-    echo $(ls /tmp/*.wipingstate 2>/dev/null)
+# Create/remove the appropriate state flags in /tmp that allow multiple instances of this script
+# wiping disks in parallel to agree on what the LEDs should be doing.
+function setstate() {
+	state=$1
+	echo $state > $statefile
+}
+
+# Get a list of state files
+function wiperlist() {
+    (ls $statedir/sd? | xargs -L1 basename) 2>/dev/null
+}
+
+# Get a list of state files with particular state
+# statelist wiping|error|done
+function statelist() {
+	state=$1
+	(grep $state $statedir/sd? | cut -d: -f1) 2>/dev/null
 }
 
 function blink() {
-    wipers=$(wiperslist)
-    [[ "$wipers" =~ ^/tmp/$dev ]] && master=1 || master=""
-	if [ $master ]; then
-		ledtrigger both none
-	fi
-    for process in $wipers; do
-        [ $master ] && pulse both
-        sleep 0.4
-    done
+    wipers=$(wiperlist)
+    [[ "$wipers" =~ ^$dev ]] || return
+	ledtrigger both none
+
+	# Get a list of processes of different states
+	wiping=$(statelist wiping)
+	error=$(statelist error)
+	done=$(statelist done)
+	
+	# Blink number of wiping processes
+    for i in $wiping; do
+    	pulse both
+		sleep 0.4
+	done
+	
+	# Sleep if needed between blinks
+	[ "$wiping$error" ] && sleep 1
+
+	# Blink number of error processes
+    for i in $error; do
+    	pulse red
+		sleep 0.4
+	done
+	
+	# Sleep if needed between blinks
+	[ "$error$done" ] && sleep 1
+
+	# Blink number of done processes
+    for i in $done; do
+    	pulse green
+		sleep 0.4
+	done
+	
+	# Sleep after the blinks
+	sleep 1
 }
 
 
@@ -115,14 +139,24 @@ function check() {
 	fi
 }
 
+# Blink process status until disk removed
+function waitblink() {
+	while [ -b "$disk" ]; do
+		blink
+	done
+}
+
 # If the disk is removed before we're done, systemd will kill us. Catch that signal and do some cleanup.
-interrupted() {
-	setstate done
-	log "Ooopsies! Looks like our device disappeared. Systemd is killing us. Cleaning up and exiting."
+function interrupted() {
+	if [ "$state" == "done" ]; then
+		log "Wiped disk removed. Cleaning up and exiting."
+	else
+		log "Ooopsies! Looks like our device disappeared before we were done. Systemd is killing us. Cleaning up and exiting."
+	fi
 	umount $mntpath &>/dev/null
 	rmdir -r $mntpath &>/dev/null
-	[ "$(wiperslist | wc -l)" ] && ledtrigger red input
-	exit 1
+	rm $statefile
+	exit
 }
 
 # Catch the INT and TERM signals
@@ -150,7 +184,7 @@ check
 #shred -v --iterations=1 "$disk" 2>&1 | inlog
 
 # Faster than shred. You need to have pv installed for this
-openssl enc -aes128 -k "wiper" < /dev/zero | pv -ftrb 2>&1 > "$disk" | stdbuf -oL tr '\r' '\n' | inlog
+openssl enc -aes128 -k "wiper" < /dev/zero | pv -fterab 2>&1 > "$disk" | stdbuf -oL tr '\r' '\n' | inlog
 
 # Faster than shred. No pv required but no progress is logged.
 #openssl enc -aes128 -k "wiper" < /dev/zero > "$disk"
@@ -165,11 +199,7 @@ setstate wiping
 # Blink the LEDs while the wiper is running
 while kill -0 "$PID" >/dev/null 2>&1; do
     blink
-    sleep 1
 done
-[ "$(wiperslist | wc -l)" ] && ledtrigger red input
-
-setstate done
 
 # Create a partition table on the disk with one partition filling the disk.
 log "Wiping Complete. Partitioning."
@@ -212,6 +242,8 @@ touch  $mntpath/$(date +"%Y-%m-%d--%H-%M-%S")
 umount $mntpath
 rm -r $mntpath
 
-# Turn on done LED pattern
-
 log "Done in $SECONDS seconds!"
+setstate done
+
+# Wait for the disk to be unplugged and blink status
+waitblink
