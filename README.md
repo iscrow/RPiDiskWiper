@@ -39,5 +39,5 @@ cd RPiDiskWiper
 ## Related Projects
 I started this project because I could not find anything that did exactly what I wanted. I did look at a few options and I got some ideas for my implementation from the following projects:
 
-[https://github.com/Real-Time-Kodi/PiBAN](https://github.com/Real-Time-Kodi/PiBAN)
-[https://github.com/craigmayhew/USBCleanser](https://github.com/craigmayhew/USBCleanser)
+* [https://github.com/Real-Time-Kodi/PiBAN](https://github.com/Real-Time-Kodi/PiBAN)
+* [https://github.com/craigmayhew/USBCleanser](https://github.com/craigmayhew/USBCleanser)
