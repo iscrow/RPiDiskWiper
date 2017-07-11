@@ -20,8 +20,9 @@ It can wipe multiple devices in parallel. Actions are logged in `/tmp/wiper.log`
 
 RPiDiskWiper also takes control of the onboard RPi LEDs.
 The patterns are as follows:
-* Wiping: both leds blink the number of current wiper tasks running and pause. For 2 wipers we get `.._.._.._`
-* Done: Normal LED function. Green show sdcard access and RED one is solid on
+* For devices being wiped you get a blink from both LEDs at the same time. So for 2 devices being wiped we get the pattern: `[Green+Red][Green+Red] [Pause] [Green+Red][Green+Red] [Pause]...`
+* For completed devices we get a single green blink each so for one device being wiped and one already completed we get the pattern: `[Green+Red][Green] [Pause] [Green+Red][Green] [Pause]...`
+* For two completed devices and none being wiped we get the pattern: `[Green][Green] [Pause] [Green][Green] [Pause]...`
 
 After wipe, the script creates a DOS partition table on the disk with a single partition and formats is at FAT32. You can change the filesystem in `wiper`. It also adds a timestamp file on the newly created filesystem.
 
