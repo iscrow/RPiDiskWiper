@@ -3,7 +3,7 @@ RPiDiskWiper turns a raspberry pi into an automated disk wiper
 
 ## **DISCLAIMER**
 
-Do not install this on your laptop/desktop unless you know what you're doing. Will it work? Sure but be careful.**As a precaution, the install script will not enable wiping of the devices connected during install time.** So if you have an HDD connected that you intend to wipe, please unplug it before you run the install script or it will be ignored. And lastly, you can't hold me responsible if this tool wipes data you need. Just saying...
+Do not install this on your laptop/desktop unless you know what you're doing. Will it work? Sure but be careful. **As a precaution, the install script will not enable wiping of the devices connected during install time.** So if you have an HDD connected that you intend to wipe, please unplug it before you run the install script or it will be ignored. And lastly, you can't hold me responsible if this tool wipes data you need. Just saying...
 
 ---
 
