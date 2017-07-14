@@ -10,7 +10,7 @@ Do not install this on your laptop/desktop unless you know what you're doing. Wi
 ## Installation
 
 ```
-https://github.com/iscrow/RPiDiskWiper.git
+git clone https://github.com/iscrow/RPiDiskWiper.git
 cd RPiDiskWiper
 ./install
 ```
