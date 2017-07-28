@@ -31,6 +31,9 @@ If you remove a disk before the wipe is complete the script will flash the error
 
 To wipe multiple devices, connect them in any order you like. Or start the RPi with them already connected. It doesn't matter. It will find them and wipe them.
 
+## Logs
+To watch th wipe log you can run `tail -F /tmp/wipe.log`
+
 ## Uninstall
 
 ```

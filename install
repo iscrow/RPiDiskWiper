@@ -35,4 +35,4 @@ done
 
 echo
 echo "All done! Plug a storage device to wipe it. You can monitor the log file like this:"
-echo "tail -F /tmp/wiper.log"
+echo "tail -F /tmp/wipe.log"
