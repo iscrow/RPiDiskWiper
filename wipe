@@ -174,10 +174,16 @@ check
 #shred -v --iterations=1 "$disk" 2>&1 | inlog
 
 # Faster than shred. You need to have pv installed for this
-openssl enc -aes128 -k "$RANDOM$RANDOM$RANDOM" < /dev/zero | pv -fterab 2>&1 > "$disk" | stdbuf -oL tr '\r' '\n' | inlog
+#openssl enc -aes128 -k "$RANDOM$RANDOM$RANDOM" < /dev/zero | pv -fterab 2>&1 > "$disk" | stdbuf -oL tr '\r' '\n' | inlog
 
 # Faster than shred. No pv required but no progress is logged.
 #openssl enc -aes128 -k "$RANDOM$RANDOM$RANDOM" < /dev/zero > "$disk"
+
+# dd + pv
+dd if=/dev/zero bs=1M | pv -fterab 2>&1 > "$disk" | stdbuf -oL tr '\r' '\n' | inlog
+
+# dd + status=progress
+#dd if=/dev/zero of="$disk" bs=1M status=progress 2>&1 | stdbuf -oL tr '\r' '\n' | inlog
 ) &
 
 ### End wipe strategies ###
