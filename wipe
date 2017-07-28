@@ -8,8 +8,19 @@ mntpath="/mnt/$(basename "$disk")1"
 statedir="/tmp"
 statefile="$statedir/$dev"
 state=""
-green="/sys/class/leds/led0"
-red="/sys/class/leds/led1"
+
+rpiled='/sys/class/leds/led0'
+odroidled='/sys/class/leds/blue:heartbeat'
+fakeled='/tmp/fakeled'
+
+if [ -d $rpiled ] && [ -f $rpiled/trigger ] && [ -f $rpiled/brightness ]; then
+	led=$rpiled
+elif [ -d $odroidled ] && [ -f $odroidled/trigger ] && [ -f $odroidled/brightness ]; then
+	led=$odroidled
+else
+	mkdir $fakeled
+	led=$fakeled
+fi
 
 DEBUG=1		# Debug enabled. Log to $LOGFILE
 #DEBUG=		# Debug disabled. Do not log.
@@ -19,45 +30,19 @@ if [ "$DEBUG" ]; then
 	exec 2>&1
 fi
 
-# Set LED status. Example: led 0 heartbeat
 function ledtrigger() {
-	# Trigger can be: timer oneshot heartbeat backlight gpio cpu0 cpu1 cpu2 cpu3 default-on input panic mmc0
 	# Default led0 (Green: Status) trigger: mmc0
-	# Default led1 (  Red: Power ) trigger: input
-	case "$1" in
-	green)
-		echo $2 > $green/trigger
-		;;
-	red)
-		echo $2 > $red/trigger
-		;;
-	both)
-		echo $2 > $green/trigger
-		echo $2 > $red/trigger
-		;;
-	esac
+	echo $1 > $led/trigger
 }
 
 function pulse() {
-	case "$1" in
-	green)
-		echo 255 > $green/brightness
-		sleep 0.1
-		echo   0 > $green/brightness
-		;;
-	red)
-		echo 255 > $red/brightness
-		sleep 0.1
-		echo   0 > $red/brightness
-		;;
-	both)
-		echo 255 > $green/brightness
-		echo 255 > $red/brightness
-		sleep 0.1
-		echo   0 > $green/brightness
-		echo   0 > $red/brightness
-		;;
-	esac
+	[ "0$2" -gt 0 ] && flashes=$2 || flashes=1
+	for i in $(seq $flashes); do
+		echo 255 > $led/brightness
+		sleep $1
+		echo   0 > $led/brightness
+		[ $flashes -gt 1 ] && sleep $1
+	done
 }
 
 # Log to the $LOGFILE is DEBUG is enabled. Example: log "my message"
@@ -95,7 +80,7 @@ function statelist() {
 function blink() {
     wipers=$(wiperlist)
     [[ "$wipers" =~ ^$dev ]] || return
-	ledtrigger both none
+	ledtrigger none
 
 	# Get a list of processes of different states
 	wiping=$(statelist wiping)
@@ -104,7 +89,7 @@ function blink() {
 	
 	# Blink number of wiping processes
     for i in $wiping; do
-    	pulse both
+    	pulse 0.1
 		sleep 0.4
 	done
 	
@@ -113,7 +98,7 @@ function blink() {
 
 	# Blink number of error processes
     for i in $error; do
-    	pulse red
+    	pulse 0.03 15
 		sleep 0.4
 	done
 	
@@ -122,7 +107,7 @@ function blink() {
 
 	# Blink number of done processes
     for i in $done; do
-    	pulse green
+    	pulse 1
 		sleep 0.4
 	done
 	

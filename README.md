@@ -1,5 +1,5 @@
 # RPiDiskWiper
-RPiDiskWiper turns a raspberry pi into an automated disk wiper
+RPiDiskWiper turns a raspberry pi, odroid or other dices into an automated disk wiper
 
 ## **DISCLAIMER**
 
@@ -20,9 +20,10 @@ It can wipe multiple devices in parallel. Actions are logged in `/tmp/wiper.log`
 
 RPiDiskWiper also takes control of the onboard RPi LEDs.
 The patterns are as follows:
-* For devices being wiped you get a blink from both LEDs at the same time. So for 2 devices being wiped we get the pattern: `[Green+Red][Green+Red] [Pause] [Green+Red][Green+Red] [Pause]...`
-* For completed devices we get a single green blink each so for one device being wiped and one already completed we get the pattern: `[Green+Red][Green] [Pause] [Green+Red][Green] [Pause]...`
-* For two completed devices and none being wiped we get the pattern: `[Green][Green] [Pause] [Green][Green] [Pause]...`
+* For devices being wiped you will see a single fast led flash per device. So for 2 devices being wiped you will see the pattern: `[FastFlash][FastFlash] [Pause] [FastFlash][FastFlash] [Pause]...`
+* For completed devices you will see a single long (1sec) flash each so for one device being wiped and one already completed you will see the pattern: `[FastFlash][1sec Flash] [Pause] [Fast Flash][1sec Flash] [Pause]...`
+* For two completed devices and none being wiped we get the pattern: `[1sec Flash][1sec Flash] [Pause] [1sec Flash][1sec Flash] [Pause]...`
+* For wipes which had errors you will see a long 1.2sec pulsed flash per failed wipe. So for 2 devices being wiped, one completed and 2 in error you will see: `[FastFlash][FastFlash] [1sec Flash] [1.2sec PulsedFlash][1.2sec PulsedFlash] [Pulse] [FastFlash][FastFlash] [1sec Flash] [1.2sec PulsedFlash][1.2sec PulsedFlash] [Pulse]...`
 
 After wipe, the script creates a DOS partition table on the disk with a single partition and formats is at FAT32. You can change the filesystem in `wiper`. It also adds a timestamp file on the newly created filesystem.
 
