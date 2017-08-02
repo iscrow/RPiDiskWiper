@@ -16,7 +16,7 @@ cd RPiDiskWiper
 ```
 
 That's it. Optionally edit the script `wiper` to adjust how you'd like to wipe your devices.
-It can wipe multiple devices in parallel. Actions are logged in `/tmp/wiper.log` which you can follow with `tail -F /tmp/wiper.log`
+It can wipe multiple devices in parallel. Actions are logged in `/tmp/wipe.log` which you can follow with `tail -F /tmp/wipe.log`
 
 RPiDiskWiper also takes control of the onboard RPi LEDs.
 The patterns are as follows:
