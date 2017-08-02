@@ -1,5 +1,5 @@
 # RPiDiskWiper
-RPiDiskWiper turns a raspberry pi, odroid or other dices into an automated disk wiper
+RPiDiskWiper turns a raspberry pi, odroid or other devices into an automated disk wiper
 
 ## **DISCLAIMER**
 
