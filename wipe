@@ -1,6 +1,8 @@
 #!/bin/bash
 
 LOGFILE="/tmp/wipe.log"
+SPEED_LOGFILE="/tmp/wipe_speed.log"
+MAX_LOGFILE_SIZE=$((10*1024*1024))
 
 dev=$1
 disk="/dev/$dev"
@@ -50,11 +52,15 @@ function log() {
 	[ "$DEBUG" ] && echo $(date) :: $disk :: $* >> $LOGFILE
 }
 
+function speed_log() {
+	[ "$DEBUG" ] && echo $(date) :: $disk :: $* >> $SPEED_LOGFILE
+}
+
 # Log to $LOGFILE lines read on stdin instead of passed as parameters
 # Expample: echo "my message" | inlog
 function inlog() {
 	while read -r line; do 
-		[ "$DEBUG" ] && log "$line";
+		[ "$DEBUG" ] && speed_log "$line";
 	done
 }
 
@@ -67,7 +73,7 @@ function setstate() {
 
 # Get a list of state files
 function wiperlist() {
-    (ls $statedir/sd? | xargs -L1 basename) 2>/dev/null
+	(ls $statedir/sd? | xargs -L1 basename) 2>/dev/null
 }
 
 # Get a list of state files with particular state
@@ -78,43 +84,51 @@ function statelist() {
 }
 
 function blink() {
-    wipers=$(wiperlist)
-    [[ "$wipers" =~ ^$dev ]] || return
+	wipers=$(wiperlist)
+	[[ "$wipers" =~ ^$dev ]] || return
 	ledtrigger none
 
 	# Get a list of processes of different states
 	wiping=$(statelist wiping)
 	error=$(statelist error)
 	done=$(statelist done)
-	
+
 	# Blink number of wiping processes
-    for i in $wiping; do
-    	pulse 0.1
+	for i in $wiping; do
+		pulse 0.1
 		sleep 0.4
 	done
-	
+
 	# Sleep if needed between blinks
 	[ "$wiping$error" ] && sleep 1
 
 	# Blink number of error processes
-    for i in $error; do
-    	pulse 0.03 15
+	for i in $error; do
+		pulse 0.03 15
 		sleep 0.4
 	done
-	
+
 	# Sleep if needed between blinks
 	[ "$error$done" ] && sleep 1
 
 	# Blink number of done processes
-    for i in $done; do
-    	pulse 1
+	for i in $done; do
+		pulse 1
 		sleep 0.4
 	done
-	
+
 	# Sleep after the blinks
 	sleep 1
 }
 
+#Speed log tends to grow. Don't let it get over 10M
+function truncate_logfiles() {
+	wipers=$(wiperlist)
+	[[ "$wipers" =~ ^$dev ]] || return
+	
+	[ "$(stat --printf="%s" "$LOGFILE")"       -gt $MAX_LOGFILE_SIZE ] && echo "$(date) :: Size was over $MAX_LOGFILE_SIZE. Truncating." > "$LOGFILE"
+	[ "$(stat --printf="%s" "$SPEED_LOGFILE")" -gt $MAX_LOGFILE_SIZE ] && echo "$(date) :: Size was over $MAX_LOGFILE_SIZE. Truncating." > "$SPEED_LOGFILE"
+}
 
 # Sanity check that is called before each major step to ensure the disk is still there.
 function check() {
@@ -194,49 +208,50 @@ PID=$!
 setstate wiping
 # Blink the LEDs while the wiper is running
 while kill -0 "$PID" >/dev/null 2>&1; do
-    blink
+	blink
+	truncate_logfiles
 done
 
 # Create a partition table on the disk with one partition filling the disk.
-log "Wiping Complete. Partitioning."
-(
-echo o # Create a new empty DOS partition table
-echo n # Add a new partition
-echo p # Primary partition
-echo 1 # Partition number
-echo   # First sector (Accept default: 1)
-echo   # Last sector (Accept default: varies)
-echo w # Write changes
-) | fdisk $disk
+#log "Wiping Complete. Partitioning."
+#(
+#echo o # Create a new empty DOS partition table
+#echo n # Add a new partition
+#echo p # Primary partition
+#echo 1 # Partition number
+#echo   # First sector (Accept default: 1)
+#echo   # Last sector (Accept default: varies)
+#echo w # Write changes
+#) | fdisk $disk
 
 # Check if the disk is still there
-check
+#check
 
 # Format the created partition
-log "Partitioning complete. Formatting."
-mkfs.vfat -F 32 ${disk}1
+#log "Partitioning complete. Formatting."
+#mkfs.vfat -F 32 ${disk}1
 #mkfs.ntfs -F ${disk}1
 #mkfs.ext3 -F ${disk}1
 #mkfs.xfs -F ${disk}1
 
 # Check if the disk is still there
-check
+#check
 
-log "Formatting complete. Timestamping."
+#log "Formatting complete. Timestamping."
 
 # Mount the partition
-mkdir $mntpath
-mount ${disk}1 $mntpath
+#mkdir $mntpath
+#mount ${disk}1 $mntpath
 
 # Check if the disk is still there
-check
+#check
 
 # Create a timestamp file
-touch  $mntpath/$(date +"%Y-%m-%d--%H-%M-%S")
+#touch  $mntpath/$(date +"%Y-%m-%d--%H-%M-%S")
 
 # Unmount and cleanup mount point
-umount $mntpath
-rm -r $mntpath
+#umount $mntpath
+#rm -r $mntpath
 
 log "Done in $SECONDS seconds!"
 setstate done
